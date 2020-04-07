@@ -79,7 +79,8 @@ def install_labels(cls, quiet=True, stdout=None):
 
     if not hasattr(cls, '__label__'):
         if not quiet:
-            stdout.write(' ! Skipping class {0}.{1} is abstract\n'.format(cls.__module__, cls.__name__))
+            stdout.write(' ! Skipping class {0}.{1} is abstract\n'.format(
+                cls.__module__, cls.__name__))
         return
 
     for name, property in cls.defined_properties(aliases=False, rels=False).items():
@@ -99,7 +100,7 @@ def install_labels(cls, quiet=True, stdout=None):
 
             db.cypher_query("CREATE CONSTRAINT "
                             "on (n:{0}) ASSERT n.{1} IS UNIQUE; ".format(
-                cls.__label__, db_property))
+                                cls.__label__, db_property))
 
 
 def install_all_labels(stdout=None):
@@ -181,7 +182,8 @@ class NodeMeta(type):
         return cls
 
 
-NodeBase = NodeMeta('NodeBase', (PropertyManager,), {'__abstract_node__': True})
+NodeBase = NodeMeta('NodeBase', (PropertyManager,),
+                    {'__abstract_node__': True})
 
 
 class StructuredNode(NodeBase):
@@ -263,19 +265,23 @@ class StructuredNode(NodeBase):
             ", ".join("{0}: params.create.{0}".format(getattr(cls, p).db_property or p) for p in cls.__required_properties__))
         if relationship is None:
             # create "simple" unwind query
-            query = "UNWIND {{merge_params}} as params\n MERGE ({0})\n ".format(n_merge)
+            query = "UNWIND $merge_params as params\n MERGE ({0})\n ".format(
+                n_merge)
         else:
             # validate relationship
             if not isinstance(relationship.source, StructuredNode):
-                raise ValueError("relationship source [{0}] is not a StructuredNode".format(repr(relationship.source)))
+                raise ValueError("relationship source [{0}] is not a StructuredNode".format(
+                    repr(relationship.source)))
             relation_type = relationship.definition.get('relation_type')
             if not relation_type:
-                raise ValueError('No relation_type is specified on provided relationship')
+                raise ValueError(
+                    'No relation_type is specified on provided relationship')
 
             from .match import _rel_helper
 
             query_params["source_id"] = relationship.source.id
-            query = "MATCH (source:{0}) WHERE ID(source) = {{source_id}}\n ".format(relationship.source.__label__)
+            query = "MATCH (source:{0}) WHERE ID(source) = $source_id\n ".format(
+                relationship.source.__label__)
             query += "WITH source\n UNWIND {merge_params} as params \n "
             query += "MERGE "
             query += _rel_helper(lhs='source', rhs=n_merge, ident=None,
@@ -297,7 +303,7 @@ class StructuredNode(NodeBase):
     @classmethod
     def category(cls):
         raise NotImplementedError("Category was deprecated and has now been removed, "
-            "the functionality is now achieved using the {0}.nodes attribute".format(cls.__name__))
+                                  "the functionality is now achieved using the {0}.nodes attribute".format(cls.__name__))
 
     @classmethod
     def create(cls, *props, **kwargs):
@@ -317,7 +323,8 @@ class StructuredNode(NodeBase):
 
         lazy = kwargs.get('lazy', False)
         # create mapped query
-        query = "CREATE (n:{0} {{create_params}})".format(':'.join(cls.inherited_labels()))
+        query = "CREATE (n:{0} $create_params)".format(
+            ':'.join(cls.inherited_labels()))
 
         # close query
         if lazy:
@@ -395,7 +402,7 @@ class StructuredNode(NodeBase):
         :return: True
         """
         self._pre_action_check('delete')
-        self.cypher("MATCH (self) WHERE id(self)={self} "
+        self.cypher("MATCH (self) WHERE id(self)=$self "
                     "OPTIONAL MATCH (self)-[r]-()"
                     " DELETE r, self")
         delattr(self, 'id')
@@ -422,8 +429,10 @@ class StructuredNode(NodeBase):
         relationship = kwargs.get('relationship')
 
         # build merge query
-        get_or_create_params = [{"create": cls.deflate(p, skip_empty=True)} for p in props]
-        query, params = cls._build_merge_query(get_or_create_params, relationship=relationship, lazy=lazy)
+        get_or_create_params = [
+            {"create": cls.deflate(p, skip_empty=True)} for p in props]
+        query, params = cls._build_merge_query(
+            get_or_create_params, relationship=relationship, lazy=lazy)
 
         if 'streaming' in kwargs:
             warnings.warn('streaming is not supported by bolt, please remove the kwarg',
@@ -452,7 +461,8 @@ class StructuredNode(NodeBase):
                 db_property = prop.db_property or key
 
                 if db_property in node_properties:
-                    props[key] = prop.inflate(node_properties[db_property], node)
+                    props[key] = prop.inflate(
+                        node_properties[db_property], node)
                 elif prop.has_default:
                     props[key] = prop.default_value()
                 else:
@@ -482,7 +492,7 @@ class StructuredNode(NodeBase):
         :rtype: list
         """
         self._pre_action_check('labels')
-        return self.cypher("MATCH (n) WHERE id(n)={self} "
+        return self.cypher("MATCH (n) WHERE id(n)=$self "
                            "RETURN labels(n)")[0][0][0]
 
     def _pre_action_check(self, action):
@@ -499,10 +509,11 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check('refresh')
         if hasattr(self, 'id'):
-            request = self.cypher("MATCH (n) WHERE id(n)={self}"
-                                            " RETURN n")[0]
+            request = self.cypher("MATCH (n) WHERE id(n)=$self"
+                                  " RETURN n")[0]
             if not request or not request[0]:
-                raise self.__class__.DoesNotExist("Can't refresh non existent node")
+                raise self.__class__.DoesNotExist(
+                    "Can't refresh non existent node")
             node = self.inflate(request[0][0])
             for key, val in node.__properties__.items():
                 setattr(self, key, val)
@@ -521,7 +532,7 @@ class StructuredNode(NodeBase):
         if hasattr(self, 'id'):
             # update
             params = self.deflate(self.__properties__, self)
-            query = "MATCH (n) WHERE id(n)={self} \n"
+            query = "MATCH (n) WHERE id(n)=$self \n"
             query += "\n".join(["SET n.{0} = {{{1}}}".format(key, key) + "\n"
                                 for key in params.keys()])
             for label in self.inherited_labels():

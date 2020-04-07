@@ -31,6 +31,7 @@ class RelationshipManager(object):
 
     I.e the 'friends' object in  `user.friends.all()`
     """
+
     def __init__(self, source, key, definition):
         self.source = source
         self.source_class = source.__class__
@@ -51,9 +52,11 @@ class RelationshipManager(object):
     def _check_node(self, obj):
         """check for valid node i.e correct class and is saved"""
         if not issubclass(type(obj), self.definition['node_class']):
-            raise ValueError("Expected node of class " + self.definition['node_class'].__name__)
+            raise ValueError("Expected node of class " +
+                             self.definition['node_class'].__name__)
         if not hasattr(obj, 'id'):
-            raise ValueError("Can't perform operation on unsaved node " + repr(obj))
+            raise ValueError(
+                "Can't perform operation on unsaved node " + repr(obj))
 
     @check_source
     def connect(self, node, properties=None):
@@ -89,9 +92,10 @@ class RelationshipManager(object):
             if hasattr(tmp, 'pre_save'):
                 tmp.pre_save()
 
-        new_rel = _rel_helper(lhs='us', rhs='them', ident='r', relation_properties=rp, **self.definition)
-        q = "MATCH (them), (us) WHERE id(them)={them} and id(us)={self} " \
-            "CREATE UNIQUE" + new_rel
+        new_rel = _rel_helper(lhs='us', rhs='them', ident='r',
+                              relation_properties=rp, **self.definition)
+        q = "MATCH (them), (us) WHERE id(them)=$them and id(us)=$self " \
+            "MERGE" + new_rel
 
         params['them'] = node.id
 
@@ -129,8 +133,10 @@ class RelationshipManager(object):
         :return: StructuredRel
         """
         self._check_node(node)
-        my_rel = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
-        q = "MATCH " + my_rel + " WHERE id(them)={them} and id(us)={self} RETURN r LIMIT 1"
+        my_rel = _rel_helper(lhs='us', rhs='them',
+                             ident='r', **self.definition)
+        q = "MATCH " + my_rel + \
+            " WHERE id(them)=$them and id(us)=$self RETURN r LIMIT 1"
         rels = self.source.cypher(q, {'them': node.id})[0]
         if not rels:
             return
@@ -149,8 +155,10 @@ class RelationshipManager(object):
         """
         self._check_node(node)
 
-        my_rel = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
-        q = "MATCH " + my_rel + " WHERE id(them)={them} and id(us)={self} RETURN r "
+        my_rel = _rel_helper(lhs='us', rhs='them',
+                             ident='r', **self.definition)
+        q = "MATCH " + my_rel + \
+            " WHERE id(them)=$them and id(us)={self} RETURN r "
         rels = self.source.cypher(q, {'them': node.id})[0]
         if not rels:
             return []
@@ -183,7 +191,8 @@ class RelationshipManager(object):
         self._check_node(new_node)
         if old_node.id == new_node.id:
             return
-        old_rel = _rel_helper(lhs='us', rhs='old', ident='r', **self.definition)
+        old_rel = _rel_helper(lhs='us', rhs='old',
+                              ident='r', **self.definition)
 
         # get list of properties on the existing rel
         result, meta = self.source.cypher(
@@ -196,11 +205,12 @@ class RelationshipManager(object):
             raise NotConnected('reconnect', self.source, old_node)
 
         # remove old relationship and create new one
-        new_rel = _rel_helper(lhs='us', rhs='new', ident='r2', **self.definition)
+        new_rel = _rel_helper(lhs='us', rhs='new',
+                              ident='r2', **self.definition)
         q = "MATCH (us), (old), (new) " \
             "WHERE id(us)={self} and id(old)={old} and id(new)={new} " \
             "MATCH " + old_rel
-        q += " CREATE UNIQUE" + new_rel
+        q += " MERGE  " + new_rel
 
         # copy over properties if we have
         for p in existing_properties:
