@@ -282,7 +282,7 @@ class StructuredNode(NodeBase):
             query_params["source_id"] = relationship.source.id
             query = "MATCH (source:{0}) WHERE ID(source) = $source_id\n ".format(
                 relationship.source.__label__)
-            query += "WITH source\n UNWIND {merge_params} as params \n "
+            query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
             query += _rel_helper(lhs='source', rhs=n_merge, ident=None,
                                  relation_type=relation_type, direction=relationship.definition['direction'])
@@ -297,7 +297,6 @@ class StructuredNode(NodeBase):
             query += "RETURN id(n)"
         else:
             query += "RETURN n"
-
         return query, query_params
 
     @classmethod
@@ -427,7 +426,6 @@ class StructuredNode(NodeBase):
         """
         lazy = kwargs.get('lazy', False)
         relationship = kwargs.get('relationship')
-
         # build merge query
         get_or_create_params = [
             {"create": cls.deflate(p, skip_empty=True)} for p in props]
